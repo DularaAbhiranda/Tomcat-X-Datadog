@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# JVM memory
+CATALINA_OPTS="$CATALINA_OPTS -Xms16g -Xmx32g"
+
+# GC logs
+CATALINA_OPTS="$CATALINA_OPTS -XX:+UseG1GC -Xloggc:/home/apache-tomcat-9.0.83/logs/gc-web.$(date +%Y-%m-%d).log"
+
+# Prometheus JMX exporter (keep it, but avoid duplicate ports)
+CATALINA_OPTS="$CATALINA_OPTS -javaagent:/home/jmx/jmx_prometheus_javaagent-0.19.0.jar=9200:/home/jmx/tomcatjmx.yaml"
+
+# Datadog JMX port
+CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote"
+CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote.port=9012"
+CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote.rmi.port=9012"
+CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote.ssl=false"
+CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote.authenticate=false"
+CATALINA_OPTS="$CATALINA_OPTS -Djava.rmi.server.hostname=localhost"
+
+export CATALINA_OPTS
