@@ -1,0 +1,395 @@
+Prerequisites Setup
+1. Enable JMX Remote on Tomcat Servers
+First, enable JMX on your Tomcat servers. Edit your Tomcat startup script or setenv.sh:
+bash# Create or edit setenv.sh in $CATALINA_BASE/bin/
+sudo nano $CATALINA_BASE/bin/setenv.sh
+Add the following JMX configuration:
+bashexport CATALINA_OPTS="$CATALINA_OPTS -Dcom.sun.management.jmxremote \
+-Dcom.sun.management.jmxremote.port=9012 \
+-Dcom.sun.management.jmxremote.ssl=false \
+-Dcom.sun.management.jmxremote.authenticate=false \
+-Djava.rmi.server.hostname=localhost"
+Make it executable:
+bashsudo chmod +x $CATALINA_BASE/bin/setenv.sh
+Restart Tomcat:
+bashsudo systemctl restart tomcat
+# or
+sudo $CATALINA_HOME/bin/shutdown.sh && sudo $CATALINA_HOME/bin/startup.sh
+
+DataDog Agent Configuration
+2. Install DataDog Agent (if not already installed)
+bash# For Linux
+DD_API_KEY=<YOUR_API_KEY> DD_SITE="datadoghq.com" bash -c "$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script_agent7.sh)"
+3. Enable Logs Collection in DataDog Agent
+Edit the main DataDog configuration:
+bashsudo nano /etc/datadog-agent/datadog.yaml
+Enable logs:
+yamllogs_enabled: true
+
+Tomcat Integration Configuration
+4. Configure Tomcat Integration with Default + Additional Metrics
+Create/edit the Tomcat configuration file:
+bashsudo nano /etc/datadog-agent/conf.d/tomcat.d/conf.yaml
+Add this comprehensive configuration with default + additional metrics:
+yamlinstances:
+  - host: localhost
+    port: 9012
+    name: tomcat_instance
+    
+    # Additional tags for identification
+    tags:
+      - env:production
+      - server:web-server-01  # Change per server
+    
+    # Comprehensive metric configuration
+    conf:
+      # Thread Pool Metrics (Default)
+      - include:
+          domain: Catalina
+          type: ThreadPool
+          attribute:
+            maxThreads:
+              alias: tomcat.threads.max
+              metric_type: gauge
+            currentThreadCount:
+              alias: tomcat.threads.count
+              metric_type: gauge
+            currentThreadsBusy:
+              alias: tomcat.threads.busy
+              metric_type: gauge
+            minSpareThreads:
+              alias: tomcat.threads.min
+              metric_type: gauge
+      
+      # Global Request Processor Metrics (Default)
+      - include:
+          domain: Catalina
+          type: GlobalRequestProcessor
+          attribute:
+            bytesSent:
+              alias: tomcat.bytes_sent
+              metric_type: counter
+            bytesReceived:
+              alias: tomcat.bytes_rcvd
+              metric_type: counter
+            errorCount:
+              alias: tomcat.error_count
+              metric_type: counter
+            requestCount:
+              alias: tomcat.request_count
+              metric_type: counter
+            maxTime:
+              alias: tomcat.max_time
+              metric_type: gauge
+            processingTime:
+              alias: tomcat.processing_time
+              metric_type: counter
+            minTime:
+              alias: tomcat.min_time
+              metric_type: gauge
+      
+      # Servlet Metrics (Default)
+      - include:
+          domain: Catalina
+          type: Servlet
+          attribute:
+            processingTime:
+              alias: tomcat.servlet.processing_time
+              metric_type: counter
+            errorCount:
+              alias: tomcat.servlet.error_count
+              metric_type: counter
+            requestCount:
+              alias: tomcat.servlet.request_count
+              metric_type: counter
+            maxTime:
+              alias: tomcat.servlet.max_time
+              metric_type: gauge
+            minTime:
+              alias: tomcat.servlet.min_time
+              metric_type: gauge
+      
+      # JSP Metrics (Default)
+      - include:
+          domain: Catalina
+          type: JspMonitor
+          attribute:
+            jspCount:
+              alias: tomcat.jsp.count
+              metric_type: counter
+            jspReloadCount:
+              alias: tomcat.jsp.reload_count
+              metric_type: counter
+      
+      # String Cache Metrics (Default)
+      - include:
+          domain: Catalina
+          type: StringCache
+          attribute:
+            accessCount:
+              alias: tomcat.string_cache.access_count
+              metric_type: counter
+            hitCount:
+              alias: tomcat.string_cache.hit_count
+              metric_type: counter
+            cacheSize:
+              alias: tomcat.string_cache.cache_size
+              metric_type: gauge
+            maxSize:
+              alias: tomcat.string_cache.max_size
+              metric_type: gauge
+      
+      # Web Resource Cache Metrics (Default)
+      - include:
+          domain: Catalina
+          type: WebResourceCache
+          attribute:
+            hitCount:
+              alias: tomcat.web.cache.hit_count
+              metric_type: counter
+            lookupCount:
+              alias: tomcat.web.cache.lookup_count
+              metric_type: counter
+      
+      # JDBC Connection Pool Metrics (Default)
+      - include:
+          domain: Catalina
+          type: DataSource
+          attribute:
+            numActive:
+              alias: tomcat.jdbc.connection_pool.active
+              metric_type: gauge
+            numIdle:
+              alias: tomcat.jdbc.connection_pool.idle
+              metric_type: gauge
+            maxActive:
+              alias: tomcat.jdbc.connection_pool.max_active
+              metric_type: gauge
+            maxIdle:
+              alias: tomcat.jdbc.connection_pool.max_idle
+              metric_type: gauge
+            minIdle:
+              alias: tomcat.jdbc.connection_pool.min_idle
+              metric_type: gauge
+            size:
+              alias: tomcat.jdbc.connection_pool.size
+              metric_type: gauge
+      
+      # ADDITIONAL METRICS - Memory and Manager
+      - include:
+          domain: Catalina
+          type: Manager
+          attribute:
+            activeSessions:
+              alias: tomcat.sessions.active
+              metric_type: gauge
+            sessionCounter:
+              alias: tomcat.sessions.total
+              metric_type: counter
+            maxActive:
+              alias: tomcat.sessions.max_active
+              metric_type: gauge
+            rejectedSessions:
+              alias: tomcat.sessions.rejected
+              metric_type: counter
+            expiredSessions:
+              alias: tomcat.sessions.expired
+              metric_type: counter
+            sessionCreateRate:
+              alias: tomcat.sessions.create_rate
+              metric_type: gauge
+            sessionExpireRate:
+              alias: tomcat.sessions.expire_rate
+              metric_type: gauge
+      
+      # ADDITIONAL METRICS - Executor (if configured)
+      - include:
+          domain: Catalina
+          type: Executor
+          attribute:
+            poolSize:
+              alias: tomcat.executor.pool_size
+              metric_type: gauge
+            activeCount:
+              alias: tomcat.executor.active_count
+              metric_type: gauge
+            queueSize:
+              alias: tomcat.executor.queue_size
+              metric_type: gauge
+            completedTaskCount:
+              alias: tomcat.executor.completed_tasks
+              metric_type: counter
+      
+      # ADDITIONAL METRICS - Request Processor Details
+      - include:
+          domain: Catalina
+          type: RequestProcessor
+          attribute:
+            requestProcessingTime:
+              alias: tomcat.request_processor.processing_time
+              metric_type: gauge
+            requestBytesSent:
+              alias: tomcat.request_processor.bytes_sent
+              metric_type: counter
+            requestBytesReceived:
+              alias: tomcat.request_processor.bytes_received
+              metric_type: counter
+            errorCount:
+              alias: tomcat.request_processor.errors
+              metric_type: counter
+      
+      # ADDITIONAL METRICS - Connector Details
+      - include:
+          domain: Catalina
+          type: ProtocolHandler
+          attribute:
+            connectionCount:
+              alias: tomcat.connector.connection_count
+              metric_type: gauge
+            keepAliveCount:
+              alias: tomcat.connector.keepalive_count
+              metric_type: gauge
+            maxConnections:
+              alias: tomcat.connector.max_connections
+              metric_type: gauge
+
+# Log collection configuration
+logs:
+  - type: file
+    path: /var/log/tomcat/*.log
+    source: tomcat
+    service: tomcat
+    # Handle multi-line logs starting with date
+    log_processing_rules:
+      - type: multi_line
+        name: log_start_with_date
+        pattern: \d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])
+
+Log Configuration for Tomcat
+5. Configure Tomcat to Use Log4j
+For Tomcat 8.0+, you need to configure log4j:
+Download log4j libraries:
+bashcd $CATALINA_HOME/lib
+sudo wget https://repo1.maven.org/maven2/log4j/log4j/1.2.17/log4j-1.2.17.jar
+sudo wget https://archive.apache.org/dist/tomcat/tomcat-8/v8.5.90/bin/extras/tomcat-juli-adapters.jar
+sudo wget https://archive.apache.org/dist/tomcat/tomcat-8/v8.5.90/bin/extras/tomcat-juli.jar
+Create log4j properties file:
+bashsudo nano $CATALINA_BASE/lib/log4j.properties
+Add this configuration:
+propertieslog4j.rootLogger = INFO, CATALINA
+
+# Define all the appenders
+log4j.appender.CATALINA = org.apache.log4j.DailyRollingFileAppender
+log4j.appender.CATALINA.File = /var/log/tomcat/catalina.log
+log4j.appender.CATALINA.Append = true
+log4j.appender.CATALINA.DatePattern = '.'yyyy-MM-dd
+log4j.appender.CATALINA.layout = org.apache.log4j.PatternLayout
+log4j.appender.CATALINA.layout.ConversionPattern = %d{yyyy-MM-dd HH:mm:ss} %-5p [%t] %c{1}:%L - %m%n
+
+log4j.appender.LOCALHOST = org.apache.log4j.DailyRollingFileAppender
+log4j.appender.LOCALHOST.File = /var/log/tomcat/localhost.log
+log4j.appender.LOCALHOST.Append = true
+log4j.appender.LOCALHOST.DatePattern = '.'yyyy-MM-dd
+log4j.appender.LOCALHOST.layout = org.apache.log4j.PatternLayout
+log4j.appender.LOCALHOST.layout.ConversionPattern = %d{yyyy-MM-dd HH:mm:ss} %-5p [%t] %c{1}:%L - %m%n
+
+log4j.appender.MANAGER = org.apache.log4j.DailyRollingFileAppender
+log4j.appender.MANAGER.File = /var/log/tomcat/manager.log
+log4j.appender.MANAGER.Append = true
+log4j.appender.MANAGER.DatePattern = '.'yyyy-MM-dd
+log4j.appender.MANAGER.layout = org.apache.log4j.PatternLayout
+log4j.appender.MANAGER.layout.ConversionPattern = %d{yyyy-MM-dd HH:mm:ss} %-5p [%t] %c{1}:%L - %m%n
+
+log4j.appender.HOST-MANAGER = org.apache.log4j.DailyRollingFileAppender
+log4j.appender.HOST-MANAGER.File = /var/log/tomcat/host-manager.log
+log4j.appender.HOST-MANAGER.Append = true
+log4j.appender.HOST-MANAGER.DatePattern = '.'yyyy-MM-dd
+log4j.appender.HOST-MANAGER.layout = org.apache.log4j.PatternLayout
+log4j.appender.HOST-MANAGER.layout.ConversionPattern = %d{yyyy-MM-dd HH:mm:ss} %-5p [%t] %c{1}:%L - %m%n
+
+# Configure which loggers log to which appenders
+log4j.logger.org.apache.catalina.core.ContainerBase.[Catalina].[localhost] = INFO, LOCALHOST
+log4j.logger.org.apache.catalina.core.ContainerBase.[Catalina].[localhost].[/manager] = INFO, MANAGER
+log4j.logger.org.apache.catalina.core.ContainerBase.[Catalina].[localhost].[/host-manager] = INFO, HOST-MANAGER
+Create log directory:
+bashsudo mkdir -p /var/log/tomcat
+sudo chown tomcat:tomcat /var/log/tomcat
+sudo chmod 755 /var/log/tomcat
+
+Validation and Testing
+6. Validate Configuration
+Check configuration syntax:
+bashsudo datadog-agent configcheck
+7. Restart Services
+bash# Restart Tomcat
+sudo systemctl restart tomcat
+
+# Restart DataDog Agent
+sudo systemctl restart datadog-agent
+8. Verify JMX Connection
+Test JMX connectivity:
+bashsudo datadog-agent jmx list collected
+This should show all metrics being collected.
+9. Check Agent Status
+bashsudo datadog-agent status
+Look for the Tomcat check section. It should show:
+
+Instance ID
+Total Runs
+Metrics collected
+Status: OK
+
+10. View Collected Metrics
+See what metrics are actually being collected:
+bashsudo datadog-agent jmx collect
+11. Troubleshooting Commands
+If you have issues, use these commands:
+List all available JMX attributes:
+bashsudo datadog-agent jmx list everything
+See matching attributes:
+bashsudo datadog-agent jmx list matching
+Check for limited metrics:
+bashsudo datadog-agent jmx list limited
+View metrics with rates:
+bashsudo datadog-agent jmx list with-rate-metrics
+12. Check Agent Logs
+bashsudo tail -f /var/log/datadog/agent.log
+sudo tail -f /var/log/datadog/jmxfetch.log
+
+For Embedded Tomcat (Spring Boot)
+If you're using embedded Tomcat (like Spring Boot), the bean domain might be Tomcat instead of Catalina. Update the configuration:
+yaml# Change all "domain: Catalina" to "domain: Tomcat"
+- include:
+    domain: Tomcat  # Changed from Catalina
+    type: ThreadPool
+    attribute:
+      # ... rest of config
+
+Final Verification Checklist
+✅ JMX is enabled on Tomcat (check with netstat -tlnp | grep 9012)
+✅ DataDog Agent is running (sudo systemctl status datadog-agent)
+✅ Tomcat check shows OK (sudo datadog-agent status | grep -A 20 tomcat)
+✅ Metrics are being collected (sudo datadog-agent jmx collect)
+✅ Logs are being tailed (check DataDog log explorer)
+✅ No errors in agent logs (sudo tail -f /var/log/datadog/agent.log)
+
+Expected Metrics in DataDog
+After 5-10 minutes, you should see these metrics in DataDog:
+Default Metrics:
+
+tomcat.threads.*
+tomcat.bytes_sent/rcvd
+tomcat.error_count
+tomcat.request_count
+tomcat.servlet.*
+tomcat.jsp.*
+tomcat.jdbc.connection_pool.*
+
+Additional Metrics:
+
+tomcat.sessions.*
+tomcat.executor.*
+tomcat.request_processor.*
+tomcat.connector.*
+
+You can view these in DataDog → Metrics Explorer or create dashboards with them!
